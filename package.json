@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "server": "bun run packages/server/src/main.ts",
-    "cli": "bun run packages/cli/src/main.ts",
+    "cli": "bun --no-env-file packages/cli/src/main.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
