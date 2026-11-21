@@ -30,26 +30,7 @@ export const CallFinished = CallBase.extend({
   outcome: Outcome,
 });
 
-/** The wire form of a pending interaction call, such as `ask`. */
-export const InteractionRequest = CallBase.extend({
-  kind: z.literal("interaction.request"),
-  target: OpName,
-  input: z.unknown(),
-});
-
-/** A connection was lost. Its calls in progress then finish with `interrupted`. */
-export const ConnectionLost = Base.extend({
-  kind: z.literal("connection.lost"),
-  connectionId: z.string().min(1),
-});
-
-export const Event = z.discriminatedUnion("kind", [
-  CallStarted,
-  CallProgress,
-  CallFinished,
-  InteractionRequest,
-  ConnectionLost,
-]);
+export const Event = z.discriminatedUnion("kind", [CallStarted, CallProgress, CallFinished]);
 export type Event = z.infer<typeof Event>;
 export type EventKind = Event["kind"];
 
