@@ -9,7 +9,6 @@ An execution engine for composable operations. See [docs/design.md](docs/design.
 ```sh
 # Install
 bun install
-cp .env.example .env       # fill in OPENROUTER_API_KEY and FXRT_MODEL
 
 # Run
 bun run server             # fxrtd

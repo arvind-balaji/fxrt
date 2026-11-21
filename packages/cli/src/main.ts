@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S bun --no-env-file
 // fxrt: the CLI, in two roles: a client you type into, and an executor.
 // Layout:
 // - ops/: fs.read, fs.write, fs.edit, fs.list, shell.exec, ask
@@ -6,14 +6,26 @@
 // - net/: WebSocket client -> Socket adapter, reconnect
 // In --headless mode the CLI does not register `ask`.
 import { getLogger } from "@logtape/logtape";
+import { type Config, ConfigError, loadConfig } from "./config.ts";
 import { setupLogging } from "./log.ts";
 
-const headless = process.argv.includes("--headless");
-const verbose = process.argv.includes("--verbose");
+let config: Config;
+try {
+  config = loadConfig();
+} catch (err) {
+  if (!(err instanceof ConfigError)) throw err;
+  for (const issue of err.issues) console.error(`config ${issue}`);
+  process.exit(1);
+}
 
-await setupLogging({ verbose });
+await setupLogging(config);
 const log = getLogger(["fxrt", "cli"]);
+log.debug("config file={file} log={log} sources={sources}", {
+  file: config.configFile,
+  log: config.cliLog,
+  sources: Object.entries(config.sources)
+    .map(([k, v]) => `${k}=${v}`)
+    .join(" "),
+});
 
-const url = `ws://${process.env.FXRT_HOST ?? "127.0.0.1"}:${process.env.FXRT_PORT ?? 7420}`;
-
-log.info("start {url}", { url, headless });
+log.info("start {url}", { url: config.serverUrl, headless: config.headless });
