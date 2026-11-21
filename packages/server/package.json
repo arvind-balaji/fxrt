@@ -1,0 +1,14 @@
+{
+  "name": "@fxrt/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "fxrtd": "./src/main.ts"
+  },
+  "dependencies": {
+    "@fxrt/protocol": "workspace:*",
+    "@logtape/logtape": "^2.4.2",
+    "zod": "^4.6.7"
+  }
+}
