@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Local config and secrets
+.env
+.env.*
+!.env.example
+
+# Journal databases
+data/
+*.sqlite
+*.sqlite-*
+*.db
+
+.DS_Store
