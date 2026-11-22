@@ -33,6 +33,8 @@ export interface InvokeOptions {
 export class CallStream implements AsyncIterable<Event> {
   constructor(
     readonly ctx: Ctx,
+    /** The log position of `call.started`. */
+    readonly pos: LogPosition,
     /** Never rejects for call errors. */
     readonly outcome: Promise<Outcome>,
     private readonly events: () => AsyncIterator<Event>,
@@ -79,7 +81,9 @@ export class Core {
       return coreError("exception", messageOf(err));
     });
 
-    return new CallStream(ctx, outcome, () => this.#callEvents(ctx.callId, started.pos));
+    return new CallStream(ctx, started.pos, outcome, () =>
+      this.#callEvents(ctx.callId, started.pos),
+    );
   }
 
   /** `from` is inclusive. The default skips the backlog and follows only new events. */
