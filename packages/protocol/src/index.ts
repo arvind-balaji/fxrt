@@ -7,4 +7,5 @@ export * from "./rpc/jsonrpc.ts";
 export { socketPair } from "./rpc/pair.ts";
 export * from "./rpc/peer.ts";
 export type { Socket } from "./rpc/socket.ts";
+export { connectWebSocket } from "./rpc/websocket.ts";
 export * from "./schemas/index.ts";
