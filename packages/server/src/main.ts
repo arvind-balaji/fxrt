@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 // fxrtd: the server. Layout:
 // - core/: invoke, registry, routing, cancellation, threads (keep small)
-// - journal/: journal interface + SQLite implementation
-// - ops/: lm, agent, compact (ops that run on the server)
+// - journal/: journal interface, in-memory and SQLite implementations
+// - ops/: ops that run on the server (count for tests; lm, agent, compact)
 // - net/: Bun.serve -> Socket adapter, connection lifecycle
 import { getLogger } from "@logtape/logtape";
 import { type Config, ConfigError, loadConfig } from "./config.ts";
