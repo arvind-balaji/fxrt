@@ -61,37 +61,8 @@ export function loadConfig(opts: LoadOptions = {}): Config {
   const platform = opts.platform ?? process.platform;
 
   const flags = parseFlags(argv);
-
-  // Config file: --config > FXRT_CONFIG > default location. Only the default may be missing.
-  const explicitFile = flags.config ?? (env.FXRT_CONFIG || undefined);
-  if (explicitFile !== undefined && !isAbsolute(explicitFile)) {
-    throw new ConfigError([`config file: must be an absolute path: ${explicitFile}`]);
-  }
-  const configFile =
-    explicitFile ?? join(env.XDG_CONFIG_HOME || join(home, ".config"), "fxrt", "cli.env");
-  const fileExists = existsSync(configFile);
-  if (!fileExists && explicitFile !== undefined) {
-    throw new ConfigError([`config file: not found: ${configFile}`]);
-  }
-  const fileValues: Record<string, string> = fileExists
-    ? parseEnvFile(readFileSync(configFile))
-    : {};
-
-  // Merge file and environment; treat empty values as unset.
-  const keys = Object.keys(Env.shape);
-  const sources: Record<string, Source> = {};
-  const input: Record<string, string> = {};
-  for (const k of keys) {
-    if (env[k]) {
-      input[k] = env[k];
-      sources[k] = "env";
-    } else if (fileValues[k]) {
-      input[k] = fileValues[k];
-      sources[k] = "file";
-    } else {
-      sources[k] = "default";
-    }
-  }
+  const file = readConfigFile(flags.config, env, home);
+  const { input, sources } = mergeSources(env, file.values);
 
   const parsed = Env.safeParse(input);
   if (!parsed.success) {
@@ -112,9 +83,53 @@ export function loadConfig(opts: LoadOptions = {}): Config {
     logLevel: e.FXRT_LOG_LEVEL,
     headless: flags.headless,
     verbose: flags.verbose,
-    configFile: fileExists ? configFile : null,
+    configFile: file.path,
     sources,
   };
+}
+
+// Config file: --config > FXRT_CONFIG > default location. Only the default may be missing.
+function readConfigFile(
+  flag: string | undefined,
+  env: Record<string, string | undefined>,
+  home: string,
+): { path: string | null; values: Record<string, string> } {
+  const explicitFile = flag ?? (env.FXRT_CONFIG || undefined);
+  if (explicitFile !== undefined && !isAbsolute(explicitFile)) {
+    throw new ConfigError([`config file: must be an absolute path: ${explicitFile}`]);
+  }
+  const configFile =
+    explicitFile ?? join(env.XDG_CONFIG_HOME || join(home, ".config"), "fxrt", "cli.env");
+  if (!existsSync(configFile)) {
+    if (explicitFile !== undefined) {
+      throw new ConfigError([`config file: not found: ${configFile}`]);
+    }
+    return { path: null, values: {} };
+  }
+  return { path: configFile, values: parseEnvFile(readFileSync(configFile)) };
+}
+
+// Merge file and environment; treat empty values as unset.
+function mergeSources(
+  env: Record<string, string | undefined>,
+  fileValues: Record<string, string>,
+): { input: Record<string, string>; sources: Record<string, Source> } {
+  const sources: Record<string, Source> = {};
+  const input: Record<string, string> = {};
+  for (const k of Object.keys(Env.shape)) {
+    const fromEnv = env[k];
+    const fromFile = fileValues[k];
+    if (fromEnv) {
+      input[k] = fromEnv;
+      sources[k] = "env";
+    } else if (fromFile) {
+      input[k] = fromFile;
+      sources[k] = "file";
+    } else {
+      sources[k] = "default";
+    }
+  }
+  return { input, sources };
 }
 
 function parseFlags(argv: string[]): { config?: string; headless: boolean; verbose: boolean } {
