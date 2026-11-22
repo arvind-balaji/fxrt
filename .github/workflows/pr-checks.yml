@@ -1,0 +1,64 @@
+name: PR checks
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: read
+
+jobs:
+  pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@c5e23b7e584519ee15caa684cf60d056aa9f035f # v6.1.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            refactor
+            perf
+            test
+            docs
+            chore
+            ci
+            build
+            release
+          scopes: |
+            protocol
+            server
+            cli
+          requireScope: false
+          subjectPattern: ^[^A-Z].*[^.]$
+          subjectPatternError: Subject "{subject}" must start lowercase and not end with a period.
+
+  branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name and base
+        env:
+          HEAD: ${{ github.head_ref }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          # Release (develop -> main) and back-merge (main -> develop) PRs.
+          if [[ "$HEAD" == "develop" || "$HEAD" == "main" ]]; then
+            exit 0
+          fi
+          if [[ ! "$HEAD" =~ ^(feat|fix|refactor|perf|test|docs|chore|ci|build)/[a-z0-9-]+$ ]]; then
+            echo "::error::Branch '$HEAD' must be <type>/<kebab-desc>, e.g. feat/journal-replay"
+            exit 1
+          fi
+          if [[ "$HEAD" == docs/* && "$BASE" != "main" ]]; then
+            echo "::error::docs/* branches target main, not $BASE"
+            exit 1
+          fi
+          if [[ "$HEAD" != docs/* && "$BASE" != "develop" ]]; then
+            echo "::error::Code branches target develop, not $BASE"
+            exit 1
+          fi
