@@ -1,5 +1,4 @@
-// The contract tests for every Journal. Each implementation calls journalSuite
-// from its own *.test.ts file.
+// Shared Journal contract. Each implementation calls journalSuite from its own test file.
 import { afterEach, describe, expect, test } from "bun:test";
 import { Event, type EventDraft } from "@fxrt/protocol";
 import { type Journal, JournalError } from "../../src/journal/journal.ts";
@@ -166,7 +165,6 @@ export function journalSuite(name: string, make: MakeJournal): void {
         const head = j.head();
         const row = j.call(bad.callId);
         expect(() => j.append(bad)).toThrow(JournalError);
-        // A rejected append leaves no trace.
         expect(j.head()).toBe(head);
         expect(j.call(bad.callId)).toEqual(row);
       };

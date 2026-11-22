@@ -121,7 +121,6 @@ describe("ctx", () => {
       rootId: parent.ctx.callId,
       threadId: "t1",
     });
-    // The parent's stream has only the parent's events.
     expect(kinds(await collect(parent))).toEqual(["call.started", "call.finished"]);
   });
 

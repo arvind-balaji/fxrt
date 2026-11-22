@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { defineOp, fail, ok } from "../core/op.ts";
 
-/**
- * A streaming test op: yields 1..n as progress chunks, then returns n.
- * `delayMs` waits between chunks and stops early when the call is canceled.
- */
 export const count = defineOp({
   name: "count",
   description: "Count from 1 to n, one progress chunk per number.",
@@ -24,7 +20,7 @@ export const count = defineOp({
   },
 });
 
-/** Resolves true after `ms`, or false as soon as `signal` aborts. */
+/** Resolves false if `signal` aborts first. */
 function sleep(ms: number, signal: AbortSignal): Promise<boolean> {
   return new Promise((resolve) => {
     if (signal.aborted) return resolve(false);

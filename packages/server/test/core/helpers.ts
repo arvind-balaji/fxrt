@@ -3,7 +3,6 @@ import { Core } from "../../src/core/core.ts";
 import { InMemoryJournal } from "../../src/journal/memory.ts";
 import { count } from "../../src/ops/count.ts";
 
-/** A core on a fresh in-memory journal, with predictable IDs and `count` registered. */
 export function setup() {
   let next = 0;
   const journal = new InMemoryJournal();
@@ -12,7 +11,6 @@ export function setup() {
   return { core, journal };
 }
 
-/** Collect events, stopping after `limit` of them. */
 export async function collect(events: AsyncIterable<Event>, limit = Infinity): Promise<Event[]> {
   const out: Event[] = [];
   if (limit <= 0) return out;

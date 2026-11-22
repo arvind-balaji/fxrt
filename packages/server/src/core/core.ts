@@ -16,30 +16,24 @@ import { Registry } from "./registry.ts";
 
 const log = getLogger(["fxrt", "core"]);
 
-/** How many events a subscriber reads from the journal at a time. */
 const READ_BATCH = 256;
 
 export interface CoreOptions {
   journal: Journal;
   registry?: Registry;
-  /** Makes call and thread IDs. Default: UUIDv7. */
   newId?: () => string;
 }
 
 export interface InvokeOptions {
-  /** Cancels the call and its children. */
+  /** Also cancels the call's children. */
   signal?: AbortSignal;
 }
 
-/**
- * The events of one call, read from the journal: `call.started`, any
- * `call.progress`, then `call.finished`. Each iteration starts again from
- * `call.started`. Stopping an iteration does not cancel the call.
- */
+/** Each iteration replays the call from `call.started`. Stopping early does not cancel it. */
 export class CallStream implements AsyncIterable<Event> {
   constructor(
     readonly ctx: Ctx,
-    /** Resolves when `call.finished` is in the journal. Never rejects for call errors. */
+    /** Never rejects for call errors. */
     readonly outcome: Promise<Outcome>,
     private readonly events: () => AsyncIterator<Event>,
   ) {}
@@ -49,17 +43,11 @@ export class CallStream implements AsyncIterable<Event> {
   }
 }
 
-/**
- * The core: `invoke`, the registry, and the journal. It knows nothing about the
- * transport.
- */
 export class Core {
   readonly registry: Registry;
   readonly #journal: Journal;
   readonly #newId: () => string;
-  /** The signal of each running call, so a child call can follow its parent's. */
   readonly #running = new Map<CallId, AbortSignal>();
-  /** Subscribers waiting for the next append. */
   readonly #waiters = new Set<() => void>();
 
   constructor(opts: CoreOptions) {
@@ -69,8 +57,7 @@ export class Core {
   }
 
   /**
-   * Start a call. `call.started` is in the journal when this returns, and the call
-   * runs in the background. Call errors end up in the outcome, never as exceptions.
+   * `call.started` is journaled before this returns; the call runs in the background.
    * Only a journal failure throws.
    */
   invoke(req: CallRequest, opts: InvokeOptions = {}): CallStream {
@@ -87,7 +74,7 @@ export class Core {
     this.#running.set(ctx.callId, signal);
 
     const outcome = this.#run(ctx, req.target, req.input, signal, problem).catch((err: unknown) => {
-      // Only the journal can fail here. The call stays unfinished in the journal.
+      // Only the journal can fail here, so the call stays unfinished in it.
       log.error("journal append failed {callId}", { callId: ctx.callId, error: err });
       return coreError("exception", messageOf(err));
     });
@@ -95,11 +82,7 @@ export class Core {
     return new CallStream(ctx, outcome, () => this.#callEvents(ctx.callId, started.pos));
   }
 
-  /**
-   * All events from log position `from` (inclusive), first the ones already in the
-   * journal, then new ones as they are appended. Default: only new events.
-   * Ends when `signal` aborts.
-   */
+  /** `from` is inclusive. The default skips the backlog and follows only new events. */
   subscribe(
     from: LogPosition = this.#journal.head() + 1,
     opts: { signal?: AbortSignal } = {},
@@ -115,8 +98,7 @@ export class Core {
     }
     const parent = this.#journal.call(req.parentId);
     if (!parent) {
-      // No root or thread to inherit. Record the call as its own root, so the
-      // journal still shows the request and why it failed.
+      // Nothing to inherit: record it as its own root so the failure is still journaled.
       const threadId = req.threadId ?? this.#newId();
       return {
         ctx: { callId, parentId: req.parentId, rootId: callId, threadId },
@@ -187,7 +169,6 @@ export class Core {
     return { ok: true, value: parsedOutput.data };
   }
 
-  /** Wait for the op's result, and journal each chunk it yields on the way. */
   async #drive(execution: Execution<unknown>, ctx: Ctx): Promise<unknown> {
     if (!isAsyncGenerator(execution)) return await execution;
     for (;;) {
@@ -207,7 +188,7 @@ export class Core {
     let next = from;
     while (!signal?.aborted) {
       const batch = this.#journal.read(next, READ_BATCH);
-      // Reading and starting to wait happen in the same tick, so no append is missed.
+      // Read and wait in the same tick, so no append slips in between.
       if (batch.length === 0) {
         await this.#nextAppend(signal);
         continue;
@@ -220,7 +201,6 @@ export class Core {
     }
   }
 
-  // Filters the global log. A per-call index can come later if this gets slow.
   async *#callEvents(callId: CallId, from: LogPosition): AsyncGenerator<Event, void, undefined> {
     for await (const event of this.#tail(from)) {
       if (event.callId !== callId) continue;

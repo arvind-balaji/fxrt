@@ -1,11 +1,7 @@
 import type { CallId, Event, EventDraft, LogPosition } from "@fxrt/protocol";
 import { type CallRecord, type Journal, JournalError } from "./journal.ts";
 
-/**
- * A Journal in memory, for tests and for the stages before SQLite.
- * It stores JSON text, like a SQLite column, so callers get the same copy and
- * serialization behavior that they get from the SQLite journal.
- */
+/** Stores JSON text, so reads return copies with JSON semantics, as with SQLite. */
 export class InMemoryJournal implements Journal {
   // events[i] holds the event at position i + 1.
   readonly #events: string[] = [];
@@ -19,7 +15,7 @@ export class InMemoryJournal implements Journal {
   append(draft: EventDraft): Event {
     const event = { ...draft, pos: this.#events.length + 1, ts: this.#now() } as Event;
     const row = this.#nextCallRow(event);
-    // Serialize both before storing either, so a failure leaves no partial append.
+    // Serialize both before storing either, so a failure writes nothing.
     const eventJson = JSON.stringify(event);
     const rowJson = JSON.stringify(row);
     this.#events.push(eventJson);
@@ -44,7 +40,6 @@ export class InMemoryJournal implements Journal {
 
   close(): void {}
 
-  /** The calls-table row after this event, or undefined if the row does not change. */
   #nextCallRow(event: Event): CallRecord | undefined {
     const existing = this.call(event.callId);
     switch (event.kind) {
